@@ -54,12 +54,18 @@ test.part  <- pml.train2[-inTrain, ]
 
 ## Processing Random Forest Model
 
-For this problem, I settled on the random forest as it is a fairly accurate method for classification problems.  One of the things I needed to consider is how many trees to use.  To do that, I looked at the accuracy measure based on the recommended tuned parameter of the square root of the number of predictors in the training set.
+For this problem, I settled on the random forest as it is a fairly accurate method for classification problems.  One of the things I needed to consider is how many trees to use.  To do that, I looked at the accuracy measure based on the recommended tuned parameter of the square root of the number of predictors in the training set.  Then I created a plot to determine where the accuracy levels off.
 
 ```{r, echo=FALSE}
-#Note: These were obtained in my preliminary analysis and the values are here so that the 15 separate runs are not performed as these do not show up in the text.
-
-ntree.accuracy <- c(87.35041, 87.65532, 93.94801, 95.15324, 96.16445, 96.80319, 97.28923, 97.47135, 97.63104, 97.80447, 97.92109, 98.13564, 98.16942, 98.27091, 98.26000)
+mtry <- sqrt(ncol(train.part))
+tunegrid <- expand.grid(.mtry=mtry)
+ntree.accuracy <- NULL
+for(i in 1:15) {
+	train.part <- pml.train2[inTrain, ]
+	test.part  <- pml.train2[-inTrain, ]
+	modfit <- train(classe ~., data=train.part, method="rf", ntree=i, tuneGrid=tunegrid)
+	ntree.accuracy <- c(ntree.accuracy,  100*modfit$results$Accuracy)
+}
 plot(1:15, ntree.accuracy, xlab="Number of Trees", ylab="Accuracy (x 100)")
 ```
 
