@@ -5,10 +5,6 @@ date: "December 11, 2016"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 ## Importing and Modifying the Data
 
 The first step is to import the data set.  As there are several missing values, this ensures that all of them show up as "NA" in the data frame.
