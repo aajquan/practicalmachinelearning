@@ -1,0 +1,95 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Aaron Quan"
+date: "December 11, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Importing and Modifying the Data
+
+The first step is to import the data set.  As there are several missing values, this ensures that all of them show up as "NA" in the data frame.
+
+```{r}
+pml.train <- read.csv("./pml-training.csv", na.strings=c("#DIV/0!","NA"))
+pml.test <- read.csv("./pml-testing.csv", na.strings=c("#DIV/0!","NA"))
+```
+
+Next, I examine the training sets to determine what variables had missing values.
+
+```{r results= "hide"}
+apply(is.na(pml.train), 2, sum)
+```
+
+After examining the data, there are some variables that only have values for a few of the observations while having missing values for the majority of observations, while for all the other variables there are no missing values.  As there are too many missing values to use imputation, I decided to simply remove them and reduce the analysis.  The benchmark is to remove variables with more than 50% of its values missing.  I also removed variables (the first seven) that are there for identification purposes only. 
+
+```{r}
+# Remove all columns with the majority of obvsecations being N/A
+n <- dim(pml.train)[1]
+n.test <- dim(pml.test)[1]
+pml.train2 <- pml.train[,(apply(is.na(pml.train), 2, sum) < .5*n)]
+pml.test2 <- pml.test[,apply(is.na(pml.test), 2, sum) < .5*n.test]
+
+# Removing all columns with identification info
+pml.train2 <- pml.train2[,-(1:7)]
+pml.test2 <- pml.test2[,-(1:7)]
+```
+
+## Data Partitioning for Cross Validation
+
+Here, I prepare the data set for cross validation by splitting the training set into subsets: 60% for the training and 40% for the testing.
+```{r message=FALSE, warning=FALSE}
+library(caret)
+library(randomForest)
+
+p = dim(pml.test2)[2]
+inTrain  <- createDataPartition(pml.train2$classe, p=0.60, list=FALSE)
+
+train.part <- pml.train2[inTrain, ]
+test.part  <- pml.train2[-inTrain, ]
+```
+
+## Processing Random Forest Model
+
+For this problem, I settled on the random forest as it is a fairly accurate method for classification problems.  One of the things I needed to consider is how many trees to use.  To do that, I looked at the accuracy measure based on the recommended tuned parameter of the square root of the number of predictors in the training set.
+
+```{r, echo=FALSE}
+#Note: These were obtained in my preliminary analysis and the values are here so that the 15 separate runs are not performed as these do not show up in the text.
+
+ntree.accuracy <- c(87.35041, 87.65532, 93.94801, 95.15324, 96.16445, 96.80319, 97.28923, 97.47135, 97.63104, 97.80447, 97.92109, 98.13564, 98.16942, 98.27091, 98.26000)
+plot(1:15, ntree.accuracy, xlab="Number of Trees", ylab="Accuracy (x 100)")
+```
+
+After examining the plot, I decided that 7 is the ideal number as the increase in accuracy levels off after that point.  The random forest model is now performed on the training subset.
+
+```{r warning=FALSE, message=FALSE}
+mtry <- sqrt(ncol(train.part))
+tunegrid <- expand.grid(.mtry=mtry)
+modfit <- train(classe ~., data=train.part, method="rf", ntree=7, tuneGrid=tunegrid)
+```
+
+## Cross Validation on Test Subset
+
+Cross validation is performed on the testing subset using this fitted random forest model.
+
+```{r results= "hide"}
+predict.pml.test <- predict(modfit,newdata=test.part)
+cm.xv <- confusionMatrix(predict.pml.test, test.part$classe)
+cm.xv
+```
+
+The out-of-sample error rate is estimated to be 1.9% and with 95% confidence, it is between 1.6% and 2.2%.
+
+## Quiz Predictions 
+
+In this part, I apply the fitted model to the test set for the quiz.
+
+```{r results= "hide"}
+pred.quiz <- predict(modfit, newdata=pml.test2)
+pred.quiz
+```
+
+In conclusion, this is an accurate and useful model as it predicted all the observations in the quiz correctly.
